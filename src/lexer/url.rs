@@ -26,10 +26,11 @@ impl Display for LinkText {
 /// Token enum for capturing of link URLs and Texts
 #[derive(Logos, Debug, PartialEq)]
 pub enum URLToken {
-    // TODO: Capture link definitions
+    #[regex(r#"<a [^h]*href[^>]*>[^<]*</\s*a\s*>"#, extract_link_info)]
     Link((LinkUrl, LinkText)),
 
-    // TODO: Ignore all characters that do not belong to a link definition
+    #[regex(r#"<a [^h]*[^r][^>]*>"#, logos::skip)]
+    #[regex(r#".|\n"#, logos::skip)]
     Ignored,
 
     // Catch any error
@@ -39,6 +40,25 @@ pub enum URLToken {
 
 /// Extracts the URL and text from a string that matched a Link token
 fn extract_link_info(lex: &mut Lexer<URLToken>) -> (LinkUrl, LinkText) {
-    // TODO: Implement extraction from link definition
-    todo!()
+    let mut link = lex.slice();
+    let href = "href";
+    link = &link[link.find(href).unwrap() + href.len()..];
+    assert!(&link[0..2] == "=\"");
+    link = &link[2..];
+    link = &link[..link.find('"').unwrap()];
+
+    let mut text = lex.slice();
+    text = &text[text.find('>').unwrap() + 1..text.find("</").unwrap()];
+
+    (LinkUrl(link.to_owned()), LinkText(text.to_owned()))
+}
+
+#[test]
+fn tests_url_token() {
+    let src = std::fs::read_to_string("tests/resources/urls.html").unwrap();
+    let mut lexer = URLToken::lexer(&src);
+    while let Some(token) = lexer.next() {
+        println!("{:?}", token);
+        println!("{:?}", lexer.slice());
+    }
 }
